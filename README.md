@@ -177,5 +177,3 @@ Excerpt from [`report.md`](docs/sample_outputs/report_excerpt.md):
 - **Bayesian comparisons**: Safety stakeholders preferred posterior probabilities over p-values, so Gamma-Poisson models drive both dashboards and power analysis.
 - **Markdown reports**: Markdown keeps review artifacts diff-able in Git while still rendering cleanly in docs portals.
 
-## License
-MIT
