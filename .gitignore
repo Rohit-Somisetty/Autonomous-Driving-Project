@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.DS_Store
+.env
+.venv
+.mypy_cache/
+.pytest_cache/
+coverage.xml
+htmlcov/
+outputs/
+!docs/sample_outputs/
+*.parquet
+.ipynb_checkpoints/

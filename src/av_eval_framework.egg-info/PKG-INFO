@@ -1,0 +1,136 @@
+Metadata-Version: 2.4
+Name: av-eval-framework
+Version: 0.1.0
+Summary: Autonomous driving evaluation and safety metrics framework
+Author: Autonomous Evaluation Team
+License: MIT
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: pandas>=2.1
+Requires-Dist: numpy>=1.26
+Requires-Dist: scipy>=1.11
+Requires-Dist: statsmodels>=0.14
+Requires-Dist: matplotlib>=3.8
+Requires-Dist: typer[all]>=0.9
+Requires-Dist: pydantic>=2.5
+Requires-Dist: pyarrow>=15.0
+Requires-Dist: tabulate>=0.9
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4; extra == "dev"
+Requires-Dist: pytest-cov>=4.1; extra == "dev"
+
+# AV Evaluation & Safety Metrics Framework
+
+`av-eval-framework` delivers a reproducible pipeline for autonomous-driving log evaluation. It ingests frame-level logs, detects safety-critical events, estimates rare-event rates with both frequentist and Bayesian methods, and exports tables, plots, and Markdown reports suitable for technical reviews.
+
+## Key Features
+- **Synthetic-first ingestion** with a pydantic-configurable log generator (10 Hz sampling, rich metadata, disengagement modeling) and pluggable loaders for parquet/CSV sources.
+- **Event detectors** for disengagements, hard braking, lane deviations, and near-miss TTC violations, each providing precise timing, duration, and severity estimates.
+- **Metrics stack** producing miles-normalized rates, categorical slice breakdowns (weather, time-of-day, traffic), temporal trends, and anomaly surfacing via simple z-score logic.
+- **Rare-event analytics** via Poisson confidence intervals and Gamma-Poisson posteriors to quantify uncertainty in low-frequency safety signals.
+- **Visualization + reporting** that saves publishable PNG charts and compiles a Markdown briefing linking metric definitions, CSV outputs, and plots.
+- **CLI workflow** powered by Typer plus a Makefile for consistent local or CI execution (generate data, run evaluation, tests).
+
+## Repository Layout
+```
+av-eval-framework/
+  pyproject.toml
+  README.md
+  Makefile
+  src/av_eval/
+    config.py        # global configs + thresholds
+    cli.py           # Typer CLI entrypoint
+    data/            # schemas, loaders, synthetic generation
+    metrics/         # event detection, rates, slicing, summary logic
+    viz/             # matplotlib plotting helpers
+    report/          # Markdown report builder
+    utils/           # logging utilities
+  scripts/quickstart.py
+  tests/            # pytest suite
+  notebooks/        # placeholder for exploratory notebooks
+```
+
+## Data Model
+Frame-level schema (pandas DataFrame):
+| Column | Type | Description |
+| --- | --- | --- |
+| `trip_id` | str | Trip identifier |
+| `timestamp_s` | float | Seconds since trip start |
+| `dt_s` | float | Sample spacing (default 0.1 s) |
+| `ego_speed_mps` | float | Ego speed |
+| `ego_accel_mps2` | float | Ego longitudinal acceleration |
+| `lane_offset_m` | float | Lateral deviation from lane center |
+| `ttc_s` | float | Time-to-collision proxy |
+| `engaged` | bool | Autonomy engaged status |
+| `weather` | category | Per-trip weather condition |
+| `time_of_day` | category | Daypart bucket |
+| `traffic_density` | category | Light/medium/heavy |
+| `distance_m` | float | Trip-level distance repeated per frame |
+| `distance_miles` | float | Trip-level miles |
+| `duration_s` | float | Trip duration |
+| `log_date` | datetime64 | Synthetic log date for trend slicing |
+
+Trip-level aggregates (distance, miles, duration) are derived from the frame stream to unlock normalized metrics.
+
+## Metric Definitions
+- **Event rate per 1,000 miles**: `(event count / exposure miles) * 1000`
+- **Disengagement**: transition from `engaged=True` to `False`; duration until re-engagement.
+- **Hard braking**: `ego_accel_mps2` below configurable threshold for ≥0.3 s.
+- **Lane deviation**: `|lane_offset_m|` exceeds 0.6 m continuously for ≥1.0 s.
+- **Near miss**: `ttc_s` under 1.5 s for ≥0.2 s.
+- **Slice rate**: event rate computed per weather, time-of-day, or traffic bucket.
+- **Trend metric**: moving average of event rate grouped by synthetic `log_date` week.
+- **Rare-event intervals**: Poisson exact CI and Gamma-Poisson posterior credible interval per event type.
+
+## CLI Workflow
+```bash
+# Install dependencies
+pip install -e .
+
+# Generate synthetic driving logs
+av-eval generate-data --out outputs/data.parquet --trips 200 --seed 123
+
+# Run the evaluation pipeline (metrics, plots, report)
+av-eval run-eval --data outputs/data.parquet --outdir outputs
+```
+Outputs:
+```
+outputs/
+  data.parquet
+  metrics_overall.csv
+  metrics_slices.csv
+  metrics_trends.csv
+  anomalies.csv
+  plots/
+    overall_event_rates.png
+    weather_slice_rates.png
+    time_of_day_slice_rates.png
+  report.md
+```
+
+## Makefile Targets
+| Command | Description |
+| --- | --- |
+| `make install` | Install the project in editable mode |
+| `make format` | Run code formatters (ruff/black optional placeholder) |
+| `make lint` | Run static checks (placeholder for ruff/mypy) |
+| `make test` | Execute pytest suite |
+| `make generate-data` | Wrapper around CLI `generate-data` |
+| `make run-eval` | Wrapper around CLI `run-eval` |
+
+## Testing
+```bash
+make test
+```
+Pytest exercises event detectors, rate estimators, and the end-to-end pipeline to ensure deterministic behavior using seeded synthetic data.
+
+## Quickstart Script
+`scripts/quickstart.py` demonstrates a minimal programmatic use of the API (generate → evaluate) without invoking the CLI.
+
+## Extending
+- Replace `data.synthetic.generate_synthetic_logs` with a loader that ingests real logs but yields the same schema.
+- Add new event detectors by following the helpers in `metrics.events`.
+- Register new plots and report sections via `viz.plots` and `report.build_report`.
+
+## License
+MIT

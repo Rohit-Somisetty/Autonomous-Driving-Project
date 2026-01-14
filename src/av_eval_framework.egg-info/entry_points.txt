@@ -1,0 +1,2 @@
+[console_scripts]
+av-eval = av_eval.cli:main
